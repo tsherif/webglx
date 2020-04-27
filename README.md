@@ -1,4 +1,4 @@
 WebGLX
 ======
 
-Uniform context API for WebGL 1 and 2.
+Unified context API for WebGL 1 and 2.
