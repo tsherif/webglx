@@ -1,12 +1,25 @@
 {
   "name": "webglx",
   "version": "0.0.1",
-  "description": "",
+  "description": "Unified context API for WebGL 1 and 2.",
   "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsherif/webglx"
+  },
+  "author": {
+    "name": "Tarek Sherif",
+    "email": "tareksherif@pm.me",
+    "url": "http://tareksherif.net/"
+  },
   "scripts": {
     "build": "webpack"
   },
-  "author": "",
+  "keywords": [
+    "webgl",
+    "webgl2",
+    "3d"
+  ],
   "license": "MIT",
   "devDependencies": {
     "webpack": "^4.43.0",
