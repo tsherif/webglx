@@ -1,4 +1,4 @@
-import {WEBGL2_ENUMS, WEBGL2_METHODS, WEBGL2_IMPLICIT_EXTENSIONS, WEBGL_EXTENSION_METHODS} from "./webgl2-api.js";
+import {ENUMS, FUNCTIONS, WEBGL2_IMPLICIT_EXTENSIONS, WEBGL_EXTENSION_FUNCTIONS} from "./webgl-api.js";
 
 export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions = {}, forceWebGL2 = false, forceWebGL1 = false} = {}) {
     let gl, version, implicitExtensions;
@@ -11,6 +11,7 @@ export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions
 
     if (!gl) {
         if (forceWebGL2) {
+            console.error("[WebGLX] WebGL 2 unavailable and forceWebGL2 flag is set.")
             return null;
         }
         gl = canvas.getContext("webgl", contextOptions) || canvas.getContext("experimental-webgl", contextOptions);
@@ -18,77 +19,101 @@ export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions
         implicitExtensions = {};
     }
 
-    if (gl && requireExtensions.every(ext => implicitExtensions[ext] || gl.getExtension(ext))) {
-        return new WebGLXRenderingContext(gl, version, implicitExtensions);
+    if (!gl) {
+        console.error("[WebGLX] WebGL unavailable.")
+        return null;
+    }
+
+    const requireExtensionMap = {};
+    for (let i = 0; i < requireExtensions.length; ++i) {
+        const extName = requireExtensions[i];
+        if (!implicitExtensions[extName] && !gl.getExtension(extName)) {
+            console.error(`[WebGLX] Extension ${extName} unavailable.`);
+            return null;
+        }
+
+        requireExtensionMap[extName] = true;
+    }
+
+    if (gl) {
+        return new createWebGLXContext(gl, version, implicitExtensions, requireExtensionMap);
     } else {
         return null;
     }
 }
 
-class WebGLXRenderingContext {
-    constructor(gl, contextVersion, implicitExtensions) {
-        this.webglx = {
-            gl,
-            contextVersion,
-            implicitExtensions,
-            extensionMethods: {}
-        };
+function createWebGLXContext(gl, contextVersion, implicitExtensions, requireExtensionMap) {
+    const webglx = {
+        gl,
+        contextVersion,
+        extensions: {},
+        extensionFunctions: {},
+        implicitExtensions,
+        supportedExtensions: []
+    };
 
-        for (const extName in WEBGL2_IMPLICIT_EXTENSIONS) {
-            if (gl.getExtension(extName)) {
-                implicitExtensions[extName] = true;
-            }
-        }
+    const glx = {
+        webglx,
 
-        for (const method in WEBGL_EXTENSION_METHODS) {
-            if (!gl[method]) {
-                const [extName, extMethod] = WEBGL_EXTENSION_METHODS[method];
-                const ext = gl.getExtension(extName);
-                if (ext) {
-                    this.webglx.extensionMethods[method] = (...args) => ext[extMethod](...args);
-                }
-            }
-        }
-    }
+        get canvas() {
+            return this.webglx.gl.canvas;
+        },
 
-    get canvas() {
-        return this.webglx.gl.canvas;
-    }
+        get drawingBufferWidth() {
+            return this.webglx.gl.drawingBufferWidth;
+        },
 
-    get drawingBufferWidth() {
-        return this.webglx.gl.drawingBufferWidth;
-    }
+        get drawingBufferHeight() {
+            return this.webglx.gl.drawingBufferHeight;
+        },
 
-    get drawingBufferHeight() {
-        return this.webglx.gl.drawingBufferHeight;
-    }
-
-    getExtension(name) {
-        if (this.webglx.implicitExtensions[name]) {
-            return null;
-        }
-
-        return this.webglx.gl.getExtension(name);
-    }
-
-    getSupportedExtensions() {
-        return this.webglx.gl.getSupportedExtensions().filter(name => !this.webglx.implicitExtensions[name]);
-    }
-};
-
-Object.assign(WebGLXRenderingContext.prototype, WEBGL2_ENUMS);
-
-WEBGL2_METHODS.forEach(method => {
-    const ERROR_MESSAGE = `Method "${method}" not available.`
-    if (!WebGLXRenderingContext.prototype[method]) {
-        WebGLXRenderingContext.prototype[method] = function(...args) {
-            if (this.webglx.gl[method]) {
-                return this.webglx.gl[method](...args);
-            } else if (this.webglx.extensionMethods[method]) {
-                return this.webglx.extensionMethods[method](...args);  
+        getExtension(extName) {
+            if (this.webglx.implicitExtensions[extName]) {
+                return this;
             } else {
-                throw new Error(ERROR_MESSAGE);
+                return this.webglx.extensions[extName];
             }
-        }; 
-    }   
-});
+        },
+
+        getSupportedExtensions() {
+            return this.webglx.supportedExtensions;
+        }
+    };
+
+    Object.assign(glx, ENUMS);
+
+    gl.getSupportedExtensions().forEach(extName => webglx.extensions[extName] = gl.getExtension(extName));
+    webglx.supportedExtensions = Object.keys(webglx.implicitExtensions).concat(gl.getSupportedExtensions());
+
+    FUNCTIONS.forEach(fn => {
+        if (glx[fn]) {
+            return;
+        }
+
+        if (WEBGL_EXTENSION_FUNCTIONS[fn]) {
+            const [extName, extFunction] = WEBGL_EXTENSION_FUNCTIONS[fn];
+            if (requireExtensionMap[extName]) {
+                if (gl[fn]) {
+                    glx[fn] = (...args) => gl[fn](...args);
+                } else if (webglx.extensions[extName]) {
+                    const ext = webglx.extensions[extName];
+                    glx[fn] = (...args) => ext[extFunction](...args);
+                }
+            } else {
+                glx[fn] = () => { 
+                    throw new Error(`[WebGLX] Function "${fn}" requires extension ${extName}.`);
+                };
+            }
+        } else if (gl[fn]) {
+            glx[fn] = (...args) => gl[fn](...args);
+        }
+
+        if (!glx[fn]) {
+            glx[fn] = () => { 
+                throw new Error(`[WebGLX] Function "${fn}" not available.`);
+            };
+        }
+    });
+
+    return glx;
+}
