@@ -24,25 +24,22 @@ export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions
         return null;
     }
 
-    const requireExtensionMap = {};
     for (let i = 0; i < requireExtensions.length; ++i) {
         const extName = requireExtensions[i];
         if (!implicitExtensions[extName] && !gl.getExtension(extName)) {
             console.error(`[WebGLX] Extension ${extName} unavailable.`);
             return null;
         }
-
-        requireExtensionMap[extName] = true;
     }
 
     if (gl) {
-        return new createWebGLXContext(gl, version, implicitExtensions, requireExtensionMap);
+        return new createWebGLXContext(gl, version, implicitExtensions);
     } else {
         return null;
     }
 }
 
-function createWebGLXContext(gl, contextVersion, implicitExtensions, requireExtensionMap) {
+function createWebGLXContext(gl, contextVersion, implicitExtensions) {
     const webglx = {
         gl,
         contextVersion,
@@ -90,22 +87,14 @@ function createWebGLXContext(gl, contextVersion, implicitExtensions, requireExte
             return;
         }
 
-        if (WEBGL_EXTENSION_FUNCTIONS[fn]) {
-            const [extName, extFunction] = WEBGL_EXTENSION_FUNCTIONS[fn];
-            if (requireExtensionMap[extName]) {
-                if (gl[fn]) {
-                    glx[fn] = (...args) => gl[fn](...args);
-                } else if (webglx.extensions[extName]) {
-                    const ext = webglx.extensions[extName];
-                    glx[fn] = (...args) => ext[extFunction](...args);
-                }
-            } else {
-                glx[fn] = () => { 
-                    throw new Error(`[WebGLX] Function "${fn}" requires extension ${extName}.`);
-                };
-            }
-        } else if (gl[fn]) {
+        if (gl[fn]) {
             glx[fn] = (...args) => gl[fn](...args);
+        } else if (WEBGL_EXTENSION_FUNCTIONS[fn]) {
+            const [extName, extFunction] = WEBGL_EXTENSION_FUNCTIONS[fn];
+            if (webglx.extensions[extName]) {
+                const ext = webglx.extensions[extName];
+                glx[fn] = (...args) => ext[extFunction](...args);
+            }
         }
 
         if (!glx[fn]) {
