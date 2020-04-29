@@ -5,7 +5,8 @@ const fs = require('fs');
 const license = fs.readFileSync('LICENSE', { encoding: "utf8" });
 
 module.exports = {
-    mode: "production",
+    mode: "development",
+    devtool: "inline-source-map",
     entry: "./src/webglx.js",
     plugins: [
         new webpack.BannerPlugin({

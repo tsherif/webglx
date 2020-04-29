@@ -1,6 +1,16 @@
-import {ENUMS, FUNCTIONS, WEBGL2_IMPLICIT_EXTENSIONS, WEBGL_EXTENSION_FUNCTIONS} from "./webgl-api.js";
+import {
+    WEBGL_ENUMS,
+    WEBGL2_ENUMS,
+    EXTENSION_ENUMS,
+    WEBGL2_PARAMETER_DEFAULTS,
+    WEBGL2_PROGRAM_PARAMETER_DEFAULTS,
+    WEBGL2_TEXTURE_PARAMETER_DEFAULTS,
+    FUNCTIONS,
+    WEBGL2_IMPLICIT_EXTENSIONS,
+    WEBGL_EXTENSION_FUNCTIONS
+} from "./webgl-api.js";
 
-export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions = {}, forceWebGL2 = false, forceWebGL1 = false} = {}) {
+export function getContext(canvas, {requireExtensions = [], contextOptions = {}, forceWebGL2 = false, forceWebGL1 = false} = {}) {
     let gl, version, implicitExtensions;
 
     if (!forceWebGL1) {
@@ -39,6 +49,15 @@ export function getWebGLXContext(canvas, {requireExtensions = [], contextOptions
     }
 }
 
+export function instrumentFunction(glx, fnName, fn) {
+    if (!glx.webglx) {
+        console.error("[WebGLX] Not a WebGLX context.");
+    }
+
+    const origFn = glx[fnName].bind(glx);
+    glx[fnName] = (...args) => fn(origFn, ...args);
+}
+
 function createWebGLXContext(gl, contextVersion, implicitExtensions) {
     const webglx = {
         gl,
@@ -64,6 +83,30 @@ function createWebGLXContext(gl, contextVersion, implicitExtensions) {
             return this.webglx.gl.drawingBufferHeight;
         },
 
+        getParameter(param) {
+            if (this.webglx.contextVersion === 1 && param in WEBGL2_PARAMETER_DEFAULTS) {
+                return WEBGL2_PARAMETER_DEFAULTS[param];
+            } else {
+                return this.webglx.gl.getParameter(param);
+            }
+        },
+
+        getProgramParameter(program, param) {
+            if (this.webglx.contextVersion === 1 && param in WEBGL2_PROGRAM_PARAMETER_DEFAULTS) {
+                return WEBGL2_PROGRAM_PARAMETER_DEFAULTS[param];
+            } else {
+                return this.webglx.gl.getProgramParameter(program, param);
+            }   
+        },
+
+        getTexParameter(program, param) {
+            if (this.webglx.contextVersion === 1 && param in WEBGL2_TEXTURE_PARAMETER_DEFAULTS) {
+                return WEBGL2_TEXTURE_PARAMETER_DEFAULTS[param];
+            } else {
+                return this.webglx.gl.getTexParameter(program, param);
+            }   
+        },
+
         getExtension(extName) {
             if (this.webglx.implicitExtensions[extName]) {
                 return this;
@@ -77,7 +120,7 @@ function createWebGLXContext(gl, contextVersion, implicitExtensions) {
         }
     };
 
-    Object.assign(glx, ENUMS);
+    Object.assign(glx, WEBGL_ENUMS, WEBGL2_ENUMS, EXTENSION_ENUMS);
 
     gl.getSupportedExtensions().forEach(extName => webglx.extensions[extName] = gl.getExtension(extName));
     webglx.supportedExtensions = Object.keys(webglx.implicitExtensions).concat(gl.getSupportedExtensions());

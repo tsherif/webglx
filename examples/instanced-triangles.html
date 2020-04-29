@@ -16,13 +16,13 @@
 <body>
     <canvas id="webgl-canvas"></canvas>
     <script>
-        const {getWebGLXContext} = WebGLX;
+        const {getContext} = WebGLX;
 
         const canvas = document.getElementById("webgl-canvas");
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
-        const gl = getWebGLXContext(canvas, {
+        const gl = getContext(canvas, {
             requireExtensions: [
                 "ANGLE_instanced_arrays",
                 "OES_vertex_array_object"
