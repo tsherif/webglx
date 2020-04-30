@@ -896,7 +896,15 @@ export const WEBGL_EXTENSION_FUNCTIONS = {
     drawArraysInstanced: ["ANGLE_instanced_arrays", "drawArraysInstancedANGLE"],
     drawElementsInstanced: ["ANGLE_instanced_arrays", "drawElementsInstancedANGLE"],
     vertexAttribDivisor: ["ANGLE_instanced_arrays", "vertexAttribDivisorANGLE"],
-    drawBuffers: ["WEBGL_draw_buffers", "drawBuffersWEBGL"]
+    drawBuffers: ["WEBGL_draw_buffers", "drawBuffersWEBGL"],
+    createQuery: ["EXT_disjoint_timer_query", "createQueryEXT"],
+    deleteQuery: ["EXT_disjoint_timer_query", "deleteQueryEXT"],
+    isQuery: ["EXT_disjoint_timer_query", "isQueryEXT"],
+    beginQuery: ["EXT_disjoint_timer_query", "beginQueryEXT"],
+    endQuery: ["EXT_disjoint_timer_query", "endQueryEXT"],
+    queryCounter: ["EXT_disjoint_timer_query", "queryCounterEXT"],
+    getQuery: ["EXT_disjoint_timer_query", "getQueryEXT"],
+    getQueryParameter: ["EXT_disjoint_timer_query", "getQueryObjectEXT"],
 };
 
 export const WEBGL2_PARAMETER_DEFAULTS = {
@@ -991,4 +999,97 @@ export const WEBGL2_TEXTURE_PARAMETER_DEFAULTS = {
     [WEBGL2_ENUMS.TEXTURE_MAX_LOD]: 0,
     [WEBGL2_ENUMS.TEXTURE_MIN_LOD]: 0,
     [WEBGL2_ENUMS.TEXTURE_WRAP_R]: 0
+};
+
+const WEBGL_TEXTURE_FORMATS = {
+    [WEBGL2_ENUMS.RGB8]: WEBGL_ENUMS.RGB, 
+    [WEBGL2_ENUMS.RGB16F]: WEBGL_ENUMS.RGB, 
+    [WEBGL2_ENUMS.RGB32F]: WEBGL_ENUMS.RGB, 
+    [WEBGL2_ENUMS.RGB8UI]: WEBGL_ENUMS.RGB, 
+    [WEBGL2_ENUMS.RGBA8]: WEBGL_ENUMS.RGBA, 
+    [WEBGL2_ENUMS.RGBA16F]: WEBGL_ENUMS.RGBA, 
+    [WEBGL2_ENUMS.RGBA32F]: WEBGL_ENUMS.RGBA, 
+    [WEBGL2_ENUMS.RGBA8UI]: WEBGL_ENUMS.RGBA,
+    [WEBGL_ENUMS.DEPTH_COMPONENT16]: WEBGL_ENUMS.DEPTH_COMPONENT,
+    [WEBGL2_ENUMS.DEPTH_COMPONENT24]: WEBGL_ENUMS.DEPTH_COMPONENT,
+    [WEBGL2_ENUMS.DEPTH24_STENCIL8]: WEBGL_ENUMS.DEPTH_STENCIL
+};
+
+const WEBGL_TEXTURE_FORMAT_TYPES = {
+    [WEBGL2_ENUMS.RGB8]: WEBGL_ENUMS.UNSIGNED_BYTE, 
+    [WEBGL2_ENUMS.RGB16F]: WEBGL_ENUMS.HALF_FLOAT, 
+    [WEBGL2_ENUMS.RGB32F]: WEBGL_ENUMS.FLOAT, 
+    [WEBGL2_ENUMS.RGB8UI]: WEBGL_ENUMS.UNSIGNED_BYTE, 
+    [WEBGL2_ENUMS.RGBA8]: WEBGL_ENUMS.UNSIGNED_BYTE, 
+    [WEBGL2_ENUMS.RGBA16F]: WEBGL_ENUMS.HALF_FLOAT, 
+    [WEBGL2_ENUMS.RGBA32F]: WEBGL_ENUMS.FLOAT, 
+    [WEBGL2_ENUMS.RGBA8UI]: WEBGL_ENUMS.UNSIGNED_BYTE,
+    [WEBGL_ENUMS.DEPTH_COMPONENT16]: WEBGL_ENUMS.UNSIGNED_SHORT,
+    [WEBGL2_ENUMS.DEPTH_COMPONENT24]: WEBGL_ENUMS.UNSIGNED_INT,
+    [WEBGL2_ENUMS.DEPTH24_STENCIL8]: WEBGL2_ENUMS.UNSIGNED_INT_24_8
+};
+
+export const WEBGL2_POLYFILLS = {
+    texStorage2D(glx) {
+        glx.texStorage2D = (target, levels, internalformat, width, height) => {
+            const format = WEBGL_TEXTURE_FORMATS[internalformat];
+            const type = WEBGL_TEXTURE_FORMAT_TYPES[internalformat];
+
+            if (!format) {
+                throw new Error("Invalid format for this context.");
+            }
+
+            if (!type) {
+                throw new Error("Invalid type for this context.");
+            }
+
+            const gl = glx.webglx.gl;
+            for (let i = 0; i < levels; ++i) {
+                gl.texImage2D(target, i, format, width, height, 0, format, type, null);
+                width = Math.max(width >> 1, 1);
+                height = Math.max(height >> 1, 1);
+            }
+        }
+    }
+};
+
+export const WEBGL1_OVERRIDES = {
+    texSubImage2D(glx) {
+        glx.texSubImage2D = (target, level, xoffset, yoffset, width, height, format, type, source) => {
+            const gl = glx.webglx.gl;
+            if (source && !ArrayBuffer.isView(source)) {
+                gl.texSubImage2D(target, level, xoffset, yoffset, format, type, source);
+            } else {
+                gl.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, source);
+            }
+        };
+    },
+
+    texParameteri(glx) {
+        glx.texParameteri = (target, pname, param) => {
+            if (!(pname in WEBGL2_TEXTURE_PARAMETER_DEFAULTS)) {
+                glx.webglx.gl.texParameteri(target, pname, param);
+            }
+        }; 
+    },
+
+    texParameterf(glx) {
+        glx.texParameterf = (target, pname, param) => {
+            if (!(pname in WEBGL2_TEXTURE_PARAMETER_DEFAULTS)) {
+                glx.webglx.gl.texParameterf(target, pname, param);
+            }
+        }; 
+    },
+
+    bindFramebuffer(glx) {
+        glx.bindFramebuffer = (target, framebuffer) => {
+            glx.webglx.gl.bindFramebuffer(WEBGL_ENUMS.FRAMEBUFFER, framebuffer);
+        };
+    },
+
+    framebufferTexture2D(glx) {
+        glx.framebufferTexture2D = (target, attachment, textarget, texture, level) => {
+           glx.webglx.gl.framebufferTexture2D(WEBGL_ENUMS.FRAMEBUFFER, attachment, textarget, texture, level);
+        }
+    } 
 };

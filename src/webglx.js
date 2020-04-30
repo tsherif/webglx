@@ -7,7 +7,9 @@ import {
     WEBGL2_TEXTURE_PARAMETER_DEFAULTS,
     FUNCTIONS,
     WEBGL2_IMPLICIT_EXTENSIONS,
-    WEBGL_EXTENSION_FUNCTIONS
+    WEBGL_EXTENSION_FUNCTIONS,
+    WEBGL2_POLYFILLS,
+    WEBGL1_OVERRIDES
 } from "./webgl-api.js";
 
 export function getContext(canvas, {requireExtensions = [], contextOptions = {}, forceWebGL2 = false, forceWebGL1 = false} = {}) {
@@ -125,24 +127,28 @@ function createWebGLXContext(gl, contextVersion, implicitExtensions) {
     gl.getSupportedExtensions().forEach(extName => webglx.extensions[extName] = gl.getExtension(extName));
     webglx.supportedExtensions = Object.keys(webglx.implicitExtensions).concat(gl.getSupportedExtensions());
 
-    FUNCTIONS.forEach(fn => {
-        if (glx[fn]) {
+    FUNCTIONS.forEach(fnName => {
+        if (glx[fnName]) {
             return;
         }
 
-        if (gl[fn]) {
-            glx[fn] = (...args) => gl[fn](...args);
-        } else if (WEBGL_EXTENSION_FUNCTIONS[fn]) {
-            const [extName, extFunction] = WEBGL_EXTENSION_FUNCTIONS[fn];
+        if (contextVersion === 1 && WEBGL1_OVERRIDES[fnName]) {
+            WEBGL1_OVERRIDES[fnName](glx);
+        } else if (gl[fnName]) {
+            glx[fnName] = (...args) => gl[fnName](...args);
+        } else if (WEBGL_EXTENSION_FUNCTIONS[fnName]) {
+            const [extName, extFunction] = WEBGL_EXTENSION_FUNCTIONS[fnName];
             if (webglx.extensions[extName]) {
                 const ext = webglx.extensions[extName];
-                glx[fn] = (...args) => ext[extFunction](...args);
+                glx[fnName] = (...args) => ext[extFunction](...args);
             }
+        } else if (WEBGL2_POLYFILLS[fnName]) {
+            WEBGL2_POLYFILLS[fnName](glx);
         }
 
-        if (!glx[fn]) {
-            glx[fn] = () => { 
-                throw new Error(`[WebGLX] Function "${fn}" not available.`);
+        if (!glx[fnName]) {
+            glx[fnName] = () => { 
+                throw new Error(`[WebGLX] Function "${fnName}" not available.`);
             };
         }
     });
