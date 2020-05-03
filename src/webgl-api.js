@@ -1079,17 +1079,5 @@ export const WEBGL1_OVERRIDES = {
                 glx.webglx.gl.texParameterf(target, pname, param);
             }
         }; 
-    },
-
-    bindFramebuffer(glx) {
-        glx.bindFramebuffer = (target, framebuffer) => {
-            glx.webglx.gl.bindFramebuffer(WEBGL_ENUMS.FRAMEBUFFER, framebuffer);
-        };
-    },
-
-    framebufferTexture2D(glx) {
-        glx.framebufferTexture2D = (target, attachment, textarget, texture, level) => {
-           glx.webglx.gl.framebufferTexture2D(WEBGL_ENUMS.FRAMEBUFFER, attachment, textarget, texture, level);
-        }
-    } 
+    }
 };

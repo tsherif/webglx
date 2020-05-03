@@ -1,6 +1,6 @@
 {
   "name": "webglx",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Unified context API for WebGL 1 and 2.",
   "main": "index.js",
   "repository": {
